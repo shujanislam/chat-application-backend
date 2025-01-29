@@ -113,10 +113,24 @@ app.get('/auth/user', (req, res) => {
 });
 
 // Logout route
-app.get('/auth/logout', (req, res) => {
-    req.logout(() => {
-        res.redirect('/');
+app.get('/auth/logout/:user', async (req, res) => {
+  try {
+    req.logout(async (err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ success: false, message: 'Error during logout' });
+      }
+
+      // Update the user's status to 'offline' in the database
+      const currentUser = req.params.user; // Assuming `req.user` contains the current user's info
+      await pool.query('UPDATE users SET status = $1 WHERE name = $2', ['offline', currentUser]);
+
+      res.redirect('/');
     });
+  } catch (err) {
+    console.error('Error during logout process:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 });
 
 // Use server.listen instead of app.listen for Socket.IO
