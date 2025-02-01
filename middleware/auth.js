@@ -20,6 +20,8 @@ passport.use(new GoogleStrategy({
       let { displayName, emails } = profile;
       const email = emails?.[0]?.value;    
       
+      const user_id = displayName.toLowerCase() + Math.floor(Math.random() * 88888);
+
       const checkUser = await pool.query(`SELECT * FROM users WHERE name = $1 AND email = $2`, [displayName, email]);
 
       let user;
@@ -30,10 +32,10 @@ passport.use(new GoogleStrategy({
       }
       else{
         const addUser = await pool.query(
-                        `INSERT INTO users (name, email, status) 
-                         VALUES ($1, $2, $3) 
+                        `INSERT INTO users (name, email, status, user_id) 
+                         VALUES ($1, $2, $3, $4) 
                          RETURNING *`,
-                        [displayName, email, 'online']
+                        [displayName, email, 'online', user_id]
                     );
 
         user = addUser.rows[0];
