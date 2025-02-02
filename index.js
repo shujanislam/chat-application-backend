@@ -28,42 +28,54 @@ const io = new Server(server, {
 
 let users = {};
 
-// Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
   
-  const logIn = async () =>{
-    const logIn = await pool.query(`UPDATE users SET status = $1 WHERE name = $2`, ['online', socket.username]);
+  const logIn = async () => {
+    try {
+      await pool.query('UPDATE users SET status = $1 WHERE name = $2', ['online', socket.username]);
+    } catch (err) {
+      console.error('Error updating login status:', err);
+    }
   }
 
-  const logOut = async () =>{
-    const logOut = await pool.query(`UPDATE users SET status = $1 WHERE name = $2`, ['offline', socket.username]);
+  const logOut = async () => {
+    try {
+      await pool.query('UPDATE users SET status = $1 WHERE name = $2', ['offline', socket.username]);
+    } catch (err) {
+      console.error('Error updating logout status:', err);
+    }
   }
 
   socket.on('join', (username) => {
     socket.username = username;
     users[username] = { status: 'online', socketId: socket.id, lastActive: Date.now() };
-    console.log(users);
     logIn();
     console.log(`${username} joined the chat`);
   }); 
 
   socket.on('private_message', ({ sender, recipient, message }) => {
-    // Find recipient's socket and emit the message
+    console.log('Message received:', { sender, recipient, message });
+    
+    // Emit to recipient
     const recipientSocket = Array.from(io.sockets.sockets.values())
       .find(s => s.username === recipient);
     
     if (recipientSocket) {
-      recipientSocket.emit('receive_message', { sender, message });
+      // Send to recipient
+      recipientSocket.emit('receive_message', { sender, recipient, message });
     }
+    
+    // Send back to sender
+    socket.emit('receive_message', { sender, recipient, message });
   });
 
   socket.on('disconnect', () => {
     for (const [username, details] of Object.entries(users)) {
       if (details.socketId === socket.id) {
         delete users[username];
-        console.log(`${username} has disconnected.`);
         logOut();
+        console.log(`${username} has disconnected.`);
         break;
       }
     }    
