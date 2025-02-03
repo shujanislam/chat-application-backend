@@ -1,13 +1,5 @@
 const express = require('express');
-const { Pool } = require('pg');
-
-const pool = new Pool({
-  user: 'shujan',
-  host: 'localhost',
-  database: 'chat-app',
-  password: 'shujan@786',
-  port: 5432,
-});
+const { pool } = require('../db/db');
 
 module.exports = (io, users) => {
   const router = express.Router();
