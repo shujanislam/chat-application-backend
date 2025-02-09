@@ -48,11 +48,12 @@ io.on('connection', (socket) => {
   }
 
   socket.on('join', (username) => {
-    socket.username = username;
-    users[username] = { status: 'online', socketId: socket.id, lastActive: Date.now() };
-    logIn();
-    console.log(`${username} joined the chat`);
-  }); 
+  socket.username = username;
+  users[username] = { socketId: socket.id, status: 'online' }; // Store socket ID correctly
+  logIn();
+  console.log(`${username} joined the chat`);
+});
+
 
   socket.on('private_message', ({ sender, recipient, message }) => {
     console.log('Message received:', { sender, recipient, message });
@@ -69,6 +70,21 @@ io.on('connection', (socket) => {
     // Send back to sender
     socket.emit('receive_message', { sender, recipient, message });
   });
+
+  socket.on("typing", ({ sender, recipient }) => {
+  const recipientSocket = users[recipient]?.socketId;
+  if (recipientSocket) {
+    io.to(recipientSocket).emit("typing", { sender });
+  }
+});
+
+socket.on("stop_typing", ({ sender, recipient }) => {
+  const recipientSocket = users[recipient]?.socketId;
+  if (recipientSocket) {
+    io.to(recipientSocket).emit("stop_typing", { sender });
+  }
+});
+
 
   socket.on('disconnect', () => {
     for (const [username, details] of Object.entries(users)) {

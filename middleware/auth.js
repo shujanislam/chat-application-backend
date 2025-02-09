@@ -16,21 +16,22 @@ passport.use(new GoogleStrategy({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: '/auth/google/callback'
 }, async (accessToken, refreshToken, profile, done) => {
-   try{
+   try {
       let { displayName, emails } = profile;
-      const email = emails?.[0]?.value;    
-      
-      const user_id = displayName.toLowerCase() + Math.floor(Math.random() * 88888);
+      const email = emails?.[0]?.value;
+
+      // Replace spaces with underscores and generate a random number
+      const formattedName = displayName.toLowerCase().replace(/\s+/g, '_');
+      const user_id = `${formattedName}_${Math.floor(Math.random() * 88888)}`;
 
       const checkUser = await pool.query(`SELECT * FROM users WHERE name = $1 AND email = $2`, [displayName, email]);
 
       let user;
 
-      if(checkUser.rows.length > 0){
+      if (checkUser.rows.length > 0) {
         console.log('User Exists');
         user = checkUser.rows[0];
-      }
-      else{
+      } else {
         const addUser = await pool.query(
                         `INSERT INTO users (name, email, status, user_id) 
                          VALUES ($1, $2, $3, $4) 
@@ -43,7 +44,7 @@ passport.use(new GoogleStrategy({
 
       return done(null, user);
     } 
-    catch(err){
+    catch (err) {
       console.log(err.message);
     }
 }));
