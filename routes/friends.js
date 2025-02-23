@@ -26,13 +26,16 @@ router.get('/getfriends/:userFriend', async (req, res) => {
     console.log('User ID:', user_id);
 
     // Query the `relation` table to get friends and their statuses
+    
     const getFriends = await pool.query(
-      `SELECT u.name, u.status 
-       FROM users u
-       JOIN relation r ON u.user_id = r.user1 OR u.user_id = r.user2
-       WHERE (r.user1 = $1 OR r.user2 = $1) AND u.user_id != $1`,
-      [user_id]
-    );
+  `SELECT u.name, u.status 
+   FROM users u
+   JOIN relation r ON (u.user_id = r.user1 OR u.user_id = r.user2)
+   WHERE (r.user1 = $1 OR r.user2 = $1) 
+   AND u.user_id != $1`,
+  [user_id]
+);
+
 
     console.log('Got friends:', getFriends.rows);
 
@@ -83,6 +86,12 @@ router.post('/addfriend/:user', async (req, res) => {
     console.error("Error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
+});
+
+router.post('/search-friend', async (req, res) => {
+  let { searchFriend, user } = req.body;
+ 
+  res.status(200); 
 });
 
 module.exports = router;

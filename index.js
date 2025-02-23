@@ -8,6 +8,9 @@ const { Server } = require("socket.io");
 const friends = require("./routes/friends");
 const user = require("./routes/getUser");
 const statusUpdate = require('./routes/updateStatus');
+const profile = require('./routes/profile');
+const { addBot } = require('./utils/addBot');
+const { chatWithBot } = require('./utils/bot');
 
 require("dotenv").config();
 require("./middleware/auth");
@@ -19,6 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/", friends);
 app.use('/', statusUpdate);
+app.use('/', profile);
 
 // Configure CORS
 const corsOptions = {
@@ -58,23 +62,30 @@ socket.on("join", async (username) => {
   }
 });
 
-  
-  socket.on("private_message", ({ sender, recipient, message }) => {
+
+socket.on("private_message", async ({ sender, recipient, message }) => {
+  if (recipient === "Bot") {
+    // User is chatting with the bot
+    const botResponse = await chatWithBot(message);
+    
+    io.to(socket.id).emit("receive_message", {
+      sender: "Bot",
+      recipient: sender,
+      message: botResponse,
+    });
+
+  } else {
+    // Normal user-to-user message
     if (users[recipient]) {
       const recipientSocketId = users[recipient].socketId;
-      
-      io.to(recipientSocketId).emit("receive_message", {
-        sender,
-        recipient,
-        message,
-      });
-
+      io.to(recipientSocketId).emit("receive_message", { sender, recipient, message });
       console.log(`Message sent from ${sender} to ${recipient}: ${message}`);
     } else {
       console.log(`User ${recipient} is not online.`);
     }
-  });
-  
+  }
+});
+
   socket.on("status_change", async ({ username, status }) => {
     if (users[username]) {
       users[username].status = status;
@@ -131,37 +142,39 @@ app.get("/auth/google/callback", passport.authenticate("google", { failureRedire
 });
 
 // Check if user is authenticated
+
 app.get("/auth/user", async (req, res) => {
-  
-if (req.isAuthenticated()) {
-  try {
-    const checkUsername = await pool.query(
-      "SELECT user_id, name, status FROM users WHERE name = $1",
-      [req.user.name]
-    );
+  if (req.isAuthenticated()) {
+    try {
+      const checkUsername = await pool.query(
+        "SELECT user_id, name, status FROM users WHERE email = $1",
+        [req.user.email]
+      );
 
-    if (checkUsername.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      if (checkUsername.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+
+      const userData = checkUsername.rows[0];
+
+      // Wait for the bot to be added before responding
+      await addBot(req.user.user_id);
+
+      res.status(200).json({
+        success: true,
+        user_id: userData.user_id,
+        user: req.user,
+        status: userData.status,
+      });
+    } catch (err) {
+      console.error("Database error:", err.message);
+      res.status(500).json({ success: false, message: "Internal server error" });
     }
-
-    const userData = checkUsername.rows[0];
-
-    // Don't force "online" here, just return the current status
-    res.status(200).json({
-      success: true,
-      user_id: userData.user_id,
-      user: req.user,
-      status: userData.status, // Return the saved status
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-}
-else {
+  } else {
     res.status(401).send("Not authenticated");
   }
 });
+
 
 // Logout route
 app.get("/auth/logout/:user", async (req, res) => {
@@ -182,12 +195,6 @@ app.get("/auth/logout/:user", async (req, res) => {
     console.error("Error during logout process:", err);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
-});
-
-app.post('/search-friend', async (req, res) => {
-  let { searchFriend, user } = req.body;
- 
-  res.status(200); 
 });
 
 // Start server
