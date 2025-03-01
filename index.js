@@ -9,6 +9,7 @@ const friends = require("./routes/friends");
 const user = require("./routes/getUser");
 const statusUpdate = require('./routes/updateStatus');
 const profile = require('./routes/profile');
+const summarizeText = require('./routes/summarizeText');
 const { addBot } = require('./utils/addBot');
 const { chatWithBot } = require('./utils/bot');
 
@@ -23,6 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/", friends);
 app.use('/', statusUpdate);
 app.use('/', profile);
+app.use('/', summarizeText);
 
 // Configure CORS
 const corsOptions = {
